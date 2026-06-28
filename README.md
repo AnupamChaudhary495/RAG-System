@@ -1,102 +1,148 @@
-# Enterprise RAG System
+# RAG System
 
-A production-grade Retrieval-Augmented Generation system built in pure Python,
-managed with [uv](https://docs.astral.sh/uv/).
+A production-grade Retrieval-Augmented Generation system built in Python with a Next.js frontend. Uses local LLMs via Ollama — no OpenAI API key required.
 
 ---
 
 ## Architecture
 
 ```
-PDF files
-   │
-   ▼
-Phase 1 — Ingestion Pipeline (ingestion/)
-   │  PyMuPDF / Unstructured.io → sanitize → chunk (512 tok, 50 tok overlap)
-   │  Output: output/chunks.json
-   ▼
-Phase 2 — Embedding & Vector Store (embedding/)
-   │  BGE-M3 dense (1024-dim) + sparse vectors → Qdrant "rag_chunks" collection
-   ▼
-Qdrant  (http://localhost:6333)
+User Query (Next.js frontend)
+        │
+        ▼
+FastAPI — SSE streaming endpoint (port 8000)
+        │
+        ▼
+LangGraph Agentic Pipeline
+   ├── Router node      — classifies query: retrieve or generate
+   ├── Retriever node   — hybrid search (dense + sparse + RRF + rerank)
+   ├── Rewriter node    — rewrites query if confidence too low (retry loop)
+   └── Generator node   — synthesises answer with citations via llama3.2
+        │
+        ├── BGE-M3 (BAAI/bge-m3)
+        │   Dense (1024-dim cosine) + Sparse vectors → Qdrant
+        │
+        └── BGE Reranker (BAAI/bge-reranker-v2-m3)
+            Cross-encoder reranks top-61 RRF candidates → top-5 to LLM
+        │
+        ▼
+Redis — session memory (conversation history, TTL 24h)
+        │
+        ▼
+Next.js frontend — streams tokens, renders citations
 ```
+
+---
+
+## Models
+
+| Role | Model | Runtime |
+|---|---|---|
+| Router & Generator | `llama3.2` | Ollama (local) |
+| Embedder | `BAAI/bge-m3` | HuggingFace (in-process) |
+| Reranker | `BAAI/bge-reranker-v2-m3` | HuggingFace (in-process) |
 
 ---
 
 ## Prerequisites
 
-- [uv](https://docs.astral.sh/uv/) — `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- [Docker](https://www.docker.com/) — for Qdrant
+- [uv](https://docs.astral.sh/uv/) — Python package manager
+- [Ollama](https://ollama.com/) — local LLM server
+- [Qdrant](https://qdrant.tech/) — vector database (binary included in `.services/`)
+- [Redis](https://redis.io/) — session store (binary included in `.services/`)
+- Node.js 18+ — for the frontend
 
 ---
 
-## Phase 0 — Start Qdrant
+## Quick Start
+
+### 1. Install Python dependencies
 
 ```bash
-docker run -p 6333:6333 -p 6334:6334 \
-  -v $(pwd)/qdrant_storage:/qdrant/storage \
-  qdrant/qdrant
-```
-
-| Flag | Purpose |
-|---|---|
-| `-p 6333:6333` | REST API and web UI (used by `qdrant-client` and `curl` queries) |
-| `-p 6334:6334` | gRPC API (optional — exposed for high-throughput clients) |
-| `-v $(pwd)/qdrant_storage:/qdrant/storage` | Mounts a local directory so vector data persists when the container restarts |
-| `qdrant/qdrant` | Official Qdrant Docker image (pulls `latest` tag) |
-
----
-
-## Phase 1 — Document Ingestion
-
-```bash
-# Install dependencies
 uv sync
-
-# Run the pipeline (replace ./pdfs with your PDF directory)
-uv run python -m ingestion.pipeline ./pdfs ./output/chunks.json
 ```
 
-Output: `./output/chunks.json` — a JSON array of sanitized, token-counted
-text chunks with full provenance metadata.
+### 2. Install frontend dependencies
+
+```bash
+cd frontend && npm install && cd ..
+```
+
+### 3. Pull the LLM
+
+```bash
+ollama pull llama3.2
+```
+
+### 4. Configure environment
+
+```bash
+cp .env.example .env
+# .env is pre-configured for Ollama — no changes needed for local setup
+```
+
+### 5. Start services
+
+**Redis:**
+```bash
+.services/redis/redis-server.exe
+```
+
+**Qdrant:**
+```bash
+.services/qdrant/qdrant.exe --config-path .services/qdrant_config.yaml
+```
+
+**Ollama** (if not already running as a system service):
+```bash
+ollama serve
+```
+
+### 6. Ingest documents
+
+Place markdown files in `research/` then run:
+
+```bash
+uv run python ingest_markdown.py
+```
+
+This chunks, embeds via BGE-M3, and upserts 91 vectors into Qdrant.
+
+### 7. Start the backend
+
+```bash
+uv run uvicorn api.main:app --port 8000
+```
+
+### 8. Start the frontend
+
+```bash
+cd frontend && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Phase 2 — Embedding & Vector Storage
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Health check (Redis status) |
+| `POST` | `/chat/stream` | SSE streaming chat |
+| `GET` | `/session/{id}/history` | Retrieve conversation history |
+| `DELETE` | `/session/{id}` | Clear session |
+| `GET` | `/chunks` | Fetch source chunks by ID |
+
+### Example request
 
 ```bash
-# Run the embedding pipeline
-uv run python -m embedding.ingest_vectors ./output/chunks.json
-
-# With a custom Qdrant URL
-uv run python -m embedding.ingest_vectors ./output/chunks.json http://localhost:6333
+curl -N -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is RAG?", "session_id": "my-session"}'
 ```
 
----
-
-## Verify Upsert Success
-
-```bash
-curl http://localhost:6333/collections/rag_chunks
-```
-
-A successful response looks like:
-
-```json
-{
-  "result": {
-    "status": "green",
-    "vectors_count": 1234,
-    "points_count": 1234,
-    "config": {
-      "params": {
-        "vectors": { "dense": { "size": 1024, "distance": "Cosine" } },
-        "sparse_vectors": { "sparse": {} }
-      }
-    }
-  }
-}
-```
+SSE event types: `token`, `metadata`, `error`, `done`.
 
 ---
 
@@ -112,22 +158,57 @@ uv run pytest tests/ -v
 
 ```
 RAG-System/
-├── ingestion/
-│   ├── __init__.py
-│   ├── pipeline.py        # ingest_directory() entry point
-│   ├── parsers.py         # PyMuPDF + Unstructured.io
-│   ├── sanitizer.py       # regex sanitization pipeline
-│   ├── chunker.py         # recursive char split + sliding window
-│   └── metadata.py        # chunk metadata extraction
-├── embedding/
-│   ├── __init__.py
-│   ├── embedder.py        # BGE-M3 dense + sparse encoding
-│   ├── vector_store.py    # Qdrant collection + upsert
-│   └── ingest_vectors.py  # orchestration entry point
-├── tests/
-│   ├── test_pipeline.py   # Phase 1 unit tests (31 tests)
-│   └── test_embedding.py  # Phase 2 unit tests (17 tests)
-├── research/              # Phase 0 design documentation
+├── ingestion/              # Phase 1 — document parsing & chunking
+│   ├── pipeline.py
+│   ├── parsers.py          # PyMuPDF + Unstructured.io fallback
+│   ├── sanitizer.py
+│   ├── chunker.py
+│   └── metadata.py
+├── embedding/              # Phase 2 — BGE-M3 embedding & Qdrant upsert
+│   ├── embedder.py
+│   ├── vector_store.py
+│   └── ingest_vectors.py
+├── retrieval/              # Phase 3 — hybrid retrieval engine
+│   ├── dense_search.py     # Qdrant dense vector search
+│   ├── sparse_search.py    # Qdrant sparse vector search
+│   ├── fusion.py           # Reciprocal Rank Fusion
+│   ├── reranker.py         # BGE cross-encoder reranker
+│   └── retriever.py        # Orchestrates full retrieval pipeline
+├── orchestration/          # Phase 4 — LangGraph agentic pipeline
+│   ├── state.py            # RAGState TypedDict
+│   ├── app.py              # LangGraph graph builder
+│   └── nodes/
+│       ├── router.py
+│       ├── retriever_node.py
+│       ├── generator.py
+│       └── rewriter.py
+├── api/                    # Phase 5 — FastAPI SSE backend
+│   ├── main.py
+│   ├── session.py          # Redis session memory
+│   ├── schemas.py
+│   └── streaming.py
+├── frontend/               # Phase 5 — Next.js 14 chat UI
+│   ├── app/
+│   ├── components/
+│   └── lib/
+├── research/               # Source markdown documents (knowledge base)
+├── ingest_markdown.py      # One-shot ingestion script for research/
+├── ocr_ingest.py           # GPT-4o Vision OCR for image-based PDFs
+├── .env.example
 ├── pyproject.toml
 └── uv.lock
 ```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | `ollama` | Set to your OpenAI key to use cloud models |
+| `OPENAI_BASE_URL` | `http://localhost:11434/v1` | LLM endpoint (Ollama or OpenAI) |
+| `ROUTER_MODEL` | `llama3.2` | Model for query classification |
+| `GENERATOR_MODEL` | `llama3.2` | Model for answer generation |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant connection string |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS allowed origins |
