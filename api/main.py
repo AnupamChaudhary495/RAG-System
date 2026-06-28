@@ -25,7 +25,7 @@ from orchestration.app import build_app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_client = aioredis.from_url(redis_url)
+    redis_client = aioredis.from_url(redis_url, protocol=2)
     session.set_redis_client(redis_client)
     yield
     await redis_client.aclose()

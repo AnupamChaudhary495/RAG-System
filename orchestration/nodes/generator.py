@@ -42,10 +42,15 @@ def _format_chunks(chunks: list[RetrievalResult]) -> str:
 async def generator_node(state: RAGState) -> dict:
     model = os.getenv("GENERATOR_MODEL", "gpt-4o")
 
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    api_key = os.getenv("OPENAI_API_KEY", "")
+
     llm = ChatOpenAI(
         model=model,
         streaming=True,
         temperature=0.2,
+        openai_api_base=base_url,
+        openai_api_key=api_key,
         model_kwargs={"response_format": {"type": "json_object"}},
     ).with_config({"run_name": "generator"})
 

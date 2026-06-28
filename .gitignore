@@ -73,3 +73,16 @@ desktop.ini
 
 # Claude Code session data
 .claude/
+
+# Frontend build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/next-env.d.ts
+frontend/package-lock.json
+
+# Local service binaries
+.services/
+
+# Ingestion input/output
+input/
+output/

@@ -112,6 +112,9 @@ def parse_pdf(pdf_path: Path) -> tuple[list[PageData], str]:
     """
     pages = _parse_with_pymupdf(pdf_path)
     if _is_low_confidence(pages):
-        pages = _parse_with_unstructured(pdf_path)
-        return pages, "unstructured"
+        try:
+            pages = _parse_with_unstructured(pdf_path)
+            return pages, "unstructured"
+        except (ImportError, ModuleNotFoundError):
+            pass  # unstructured_inference not installed; keep pymupdf result
     return pages, "pymupdf"
