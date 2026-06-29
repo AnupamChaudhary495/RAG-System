@@ -11,6 +11,10 @@ dependencies = [
     "FlagEmbedding>=1.2.0",
     "qdrant-client>=1.9.0",
     "torch>=2.0.0",
+    "langgraph>=0.2.0",
+    "langchain-openai>=0.1.0",
+    "openai>=1.30.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -24,7 +28,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ingestion", "embedding", "retrieval"]
+packages = ["ingestion", "embedding", "retrieval", "orchestration"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
