@@ -1,9 +1,4 @@
-"""Query Rewriter node — rephrases the query to surface better documents.
-
-Only called when confidence_score < 0.4 and retry_count < 2.  Uses
-gpt-4o-mini to generate a single alternative phrasing that may retrieve
-more relevant chunks on the next pass.
-"""
+"""Query Rewriter node — rephrases the query to surface better documents."""
 
 from __future__ import annotations
 
@@ -23,20 +18,9 @@ _SYSTEM_PROMPT = (
 )
 
 
-def rewriter_node(state: RAGState) -> dict:
-    """Rewrite the query to improve retrieval on the next attempt.
-
-    Reads the generator's answer (which describes what was missing) and the
-    original query, then produces a rephrased query.  Increments retry_count.
-
-    Args:
-        state: Current RAG state.
-
-    Returns:
-        Partial state update: {"rewritten_query": str, "retry_count": int}.
-    """
+async def rewriter_node(state: RAGState) -> dict:
     model = os.getenv("ROUTER_MODEL", "gpt-4o-mini")
-    client = openai.OpenAI()
+    client = openai.AsyncOpenAI()
 
     retry_count: int = state.get("retry_count", 0)
 
@@ -56,7 +40,7 @@ def rewriter_node(state: RAGState) -> dict:
         {"role": "user", "content": user_content},
     ]
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=messages,

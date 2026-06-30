@@ -1,8 +1,7 @@
 """Generator node — synthesises an answer from retrieved chunks via an LLM.
 
-Uses gpt-4o (configurable via GENERATOR_MODEL env var) with JSON mode.
-Injects conversation history, numbered chunk context, and the original query
-into the prompt.  Self-reports a confidence score that drives the retry loop.
+Uses ChatOpenAI with streaming=True so LangGraph's astream_events can emit
+token-level events (on_chat_model_stream, name="generator") for SSE delivery.
 """
 
 from __future__ import annotations
@@ -10,10 +9,11 @@ from __future__ import annotations
 import json
 import os
 
-import openai
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 
-from retrieval.retriever import RetrievalResult
 from orchestration.state import RAGState
+from retrieval.retriever import RetrievalResult
 
 _SYSTEM_PROMPT = (
     "You are a precise assistant. Answer ONLY using the provided context.\n"
@@ -31,7 +31,6 @@ _RESPONSE_SCHEMA = """Respond with valid JSON matching this exact schema:
 
 
 def _format_chunks(chunks: list[RetrievalResult]) -> str:
-    """Format retrieved chunks as a numbered context block."""
     lines: list[str] = []
     for i, chunk in enumerate(chunks, start=1):
         page = chunk.page_number if chunk.page_number is not None else "?"
@@ -40,41 +39,36 @@ def _format_chunks(chunks: list[RetrievalResult]) -> str:
     return "\n".join(lines)
 
 
-def generator_node(state: RAGState) -> dict:
-    """Generate an answer grounded in retrieved chunks.
-
-    Args:
-        state: Current RAG state (expects retrieved_chunks to be populated).
-
-    Returns:
-        Partial state update with answer, source_chunk_ids, confidence_score.
-    """
+async def generator_node(state: RAGState) -> dict:
     model = os.getenv("GENERATOR_MODEL", "gpt-4o")
-    client = openai.OpenAI()
+
+    llm = ChatOpenAI(
+        model=model,
+        streaming=True,
+        temperature=0.2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    ).with_config({"run_name": "generator"})
 
     chunks: list[RetrievalResult] = state.get("retrieved_chunks", [])
     history = state["conversation_history"][-5:] if state["conversation_history"] else []
 
     context_block = _format_chunks(chunks) if chunks else "(no context retrieved)"
-
     user_content = (
         f"Context:\n{context_block}\n\n"
         f"Question: {state['query']}\n\n"
         f"{_RESPONSE_SCHEMA}"
     )
 
-    messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_content})
+    lc_messages: list = [SystemMessage(content=_SYSTEM_PROMPT)]
+    for msg in history:
+        if msg["role"] == "user":
+            lc_messages.append(HumanMessage(content=msg["content"]))
+        elif msg["role"] == "assistant":
+            lc_messages.append(AIMessage(content=msg["content"]))
+    lc_messages.append(HumanMessage(content=user_content))
 
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=messages,
-        temperature=0.2,
-    )
-
-    raw = response.choices[0].message.content or "{}"
+    response = await llm.ainvoke(lc_messages)
+    raw = response.content or "{}"
     parsed = json.loads(raw)
 
     answer: str = parsed.get("answer", "")

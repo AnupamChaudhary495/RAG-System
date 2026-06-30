@@ -1,9 +1,4 @@
-"""Router node — classifies each query as 'retrieve' or 'conversational'.
-
-Uses gpt-4o-mini (configurable via ROUTER_MODEL env var) with JSON mode to
-guarantee a valid classification string.  Unexpected values default to
-'retrieve' so the pipeline always attempts retrieval when uncertain.
-"""
+"""Router node — classifies each query as 'retrieve' or 'conversational'."""
 
 from __future__ import annotations
 
@@ -31,25 +26,16 @@ or
 """
 
 
-def router_node(state: RAGState) -> dict:
-    """Classify the query and update state['router_decision'].
-
-    Args:
-        state: Current RAG state.
-
-    Returns:
-        Partial state update: {"router_decision": "retrieve" | "conversational"}.
-    """
+async def router_node(state: RAGState) -> dict:
     model = os.getenv("ROUTER_MODEL", "gpt-4o-mini")
-    client = openai.OpenAI()
+    client = openai.AsyncOpenAI()
 
-    # Build context window: last 3 conversation turns + current query
     history = state["conversation_history"][-3:] if state["conversation_history"] else []
     messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
     messages.extend(history)
     messages.append({"role": "user", "content": state["query"]})
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=messages,
@@ -63,7 +49,6 @@ def router_node(state: RAGState) -> dict:
     except (json.JSONDecodeError, AttributeError):
         decision = "retrieve"
 
-    # Guard against unexpected values
     if decision not in _VALID_DECISIONS:
         decision = "retrieve"
 
