@@ -6,11 +6,17 @@ export interface Citation {
   token_count?: number;
 }
 
+/** Lifecycle of an assistant message. */
+export type MessageStatus = "thinking" | "streaming" | "done" | "error";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
+  /** For assistant messages this holds the RAW streamed buffer (JSON). */
   content: string;
   citations: Citation[];
+  status?: MessageStatus;
+  /** True until the first token arrives — drives the "thinking…" indicator. */
   isStreaming?: boolean;
   confidence_score?: number;
   retry_count?: number;

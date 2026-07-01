@@ -1,9 +1,35 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Enterprise RAG",
-  description: "Document Q&A powered by Retrieval-Augmented Generation",
+  title: "RAG Assistant",
+  description: "Document Q&A powered by hybrid retrieval and a local LLM",
+  applicationName: "RAG Assistant",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "RAG Assistant",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#07070b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -12,8 +38,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-white dark:bg-gray-950 antialiased">{children}</body>
+    <html lang="en" className={`${inter.variable} dark`}>
+      <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );
 }
