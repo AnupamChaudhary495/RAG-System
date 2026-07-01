@@ -44,83 +44,83 @@ Next.js frontend — streams tokens, renders citations
 
 ---
 
-## Prerequisites
+## 🚀 One-click start (Windows)
+
+**Double-click [`RAG-Assistant.bat`](RAG-Assistant.bat)** in the project root.
+
+That single launcher does everything, end to end:
+
+1. Installs any missing dependencies — `uv`, Node.js, Ollama, and the Qdrant + Redis binaries (downloaded automatically)
+2. Installs Python (`uv sync`) and frontend (`npm install`) packages
+3. Pulls the `llama3.2` model and creates a default `.env`
+4. Builds the frontend, starts **Redis + Qdrant + Ollama + backend + frontend**
+5. Ingests the knowledge base (`research/*.md`) if the vector store is empty
+6. Opens the app in **its own window** (Chrome/Edge `--app` mode)
+
+Press **Enter** in the launcher window to shut everything down. If you closed it
+without stopping, run [`scripts/stop.ps1`](scripts/stop.ps1).
+
+```powershell
+# Equivalent manual invocation / useful switches:
+powershell -ExecutionPolicy Bypass -File scripts\launch.ps1
+#   -SkipInstall   skip dependency install/build (fast restart)
+#   -CheckOnly     report tool + service status, then exit
+```
+
+> First launch downloads models (~2–3 GB) and builds the frontend, so it takes a
+> few minutes. Subsequent launches are fast. The first query also warms the
+> in-process BGE-M3 / reranker models.
+
+### Install as a desktop app (PWA)
+
+The frontend is a Progressive Web App. In Chrome/Edge, click the **install icon**
+in the address bar (or the **Install app** button in the sidebar) to install
+"RAG Assistant" as a standalone windowed app.
+
+---
+
+## Prerequisites (handled automatically by the launcher)
 
 - [uv](https://docs.astral.sh/uv/) — Python package manager
 - [Ollama](https://ollama.com/) — local LLM server
-- [Qdrant](https://qdrant.tech/) — vector database (binary included in `.services/`)
-- [Redis](https://redis.io/) — session store (binary included in `.services/`)
+- [Qdrant](https://qdrant.tech/) — vector database
+- [Redis](https://redis.io/) — session store
 - Node.js 18+ — for the frontend
 
 ---
 
-## Quick Start
+## Manual start (any OS)
 
-### 1. Install Python dependencies
+<details>
+<summary>Step-by-step, if you prefer to run each piece yourself</summary>
 
 ```bash
+# 1. Python deps
 uv sync
-```
 
-### 2. Install frontend dependencies
-
-```bash
+# 2. Frontend deps
 cd frontend && npm install && cd ..
-```
 
-### 3. Pull the LLM
-
-```bash
+# 3. Model + env
 ollama pull llama3.2
-```
+cp .env.example .env      # then set Ollama values (see Environment Variables)
 
-### 4. Configure environment
-
-```bash
-cp .env.example .env
-# .env is pre-configured for Ollama — no changes needed for local setup
-```
-
-### 5. Start services
-
-**Redis:**
-```bash
+# 4. Services (each in its own terminal)
 .services/redis/redis-server.exe
-```
-
-**Qdrant:**
-```bash
 .services/qdrant/qdrant.exe --config-path .services/qdrant_config.yaml
-```
+ollama serve              # skip if Ollama already runs as a service
 
-**Ollama** (if not already running as a system service):
-```bash
-ollama serve
-```
-
-### 6. Ingest documents
-
-Place markdown files in `research/` then run:
-
-```bash
+# 5. Ingest the knowledge base
 uv run python ingest_markdown.py
-```
 
-This chunks, embeds via BGE-M3, and upserts 91 vectors into Qdrant.
-
-### 7. Start the backend
-
-```bash
+# 6. Backend + frontend
 uv run uvicorn api.main:app --port 8000
-```
-
-### 8. Start the frontend
-
-```bash
 cd frontend && npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+</details>
 
 ---
 
