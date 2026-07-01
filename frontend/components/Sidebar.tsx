@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import {
   ChatIcon,
   EditIcon,
+  FolderPlusIcon,
   PlusIcon,
   SidebarIcon,
   SparkIcon,
@@ -28,6 +29,7 @@ interface Props {
   onRename: (id: string, title: string) => void;
   onClose: () => void;
   onToggle: () => void;
+  onOpenDocs: () => void;
 }
 
 const DAY = 86_400_000;
@@ -58,6 +60,7 @@ function SidebarInner({
   onRename,
   onClose,
   onToggle,
+  onOpenDocs,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -121,8 +124,8 @@ function SidebarInner({
             </button>
           </div>
 
-          {/* New chat */}
-          <div className="px-3 pb-2">
+          {/* New chat + Documents */}
+          <div className="space-y-1.5 px-3 pb-2">
             <button
               onClick={onNew}
               disabled={disabled}
@@ -130,6 +133,13 @@ function SidebarInner({
             >
               <PlusIcon className="h-4 w-4" />
               New chat
+            </button>
+            <button
+              onClick={onOpenDocs}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+            >
+              <FolderPlusIcon className="h-4 w-4" />
+              Add documents
             </button>
           </div>
 

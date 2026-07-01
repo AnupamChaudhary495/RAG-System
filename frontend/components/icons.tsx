@@ -111,3 +111,29 @@ export const DownloadIcon: Icon = (props) => (
     <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
   </svg>
 );
+
+export const UploadCloudIcon: Icon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M16 16l-4-4-4 4M12 12v9" />
+    <path d="M20.4 15.6A5 5 0 0 0 18 6h-1.3A8 8 0 1 0 4 14.9" />
+  </svg>
+);
+
+export const FolderPlusIcon: Icon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z" />
+    <path d="M12 11v6M9 14h6" />
+  </svg>
+);
+
+export const CloseIcon: Icon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+);
+
+export const SpinnerIcon: Icon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M12 3a9 9 0 1 0 9 9" />
+  </svg>
+);

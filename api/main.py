@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
@@ -9,18 +10,22 @@ from pathlib import Path
 
 import redis.asyncio as aioredis
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from qdrant_client import QdrantClient
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from api import session
+from api import documents, session
 from api.schemas import ChatRequest
 from api.streaming import format_sse
 from observability.langfuse_handler import make_langfuse_config
 from orchestration.app import build_app
+
+
+def _qdrant_url() -> str:
+    return os.getenv("QDRANT_URL", "http://localhost:6333")
 
 
 @asynccontextmanager
@@ -152,3 +157,32 @@ async def get_chunks(ids: str = ""):
         }
         for p in points
     ]
+
+
+@app.post("/documents")
+async def upload_documents(files: list[UploadFile] = File(...)):
+    """Ingest uploaded files (PDF / Markdown / text) into the knowledge base."""
+    payloads: list[tuple[str, bytes]] = []
+    for f in files:
+        data = await f.read()
+        payloads.append((f.filename or "upload", data))
+    if not payloads:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    result = await asyncio.to_thread(
+        documents.ingest_uploaded_files, payloads, _qdrant_url()
+    )
+    return result
+
+
+@app.get("/documents")
+async def get_documents():
+    """List ingested documents with their chunk counts."""
+    return await asyncio.to_thread(documents.list_documents, _qdrant_url())
+
+
+@app.delete("/documents/{filename}")
+async def remove_document(filename: str):
+    """Remove every chunk of a document from the knowledge base."""
+    await asyncio.to_thread(documents.delete_document, filename, _qdrant_url())
+    return {"deleted": filename}

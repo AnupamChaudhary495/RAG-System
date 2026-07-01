@@ -14,7 +14,9 @@ import {
 import { clearSession } from "@/lib/stream";
 import { Aurora } from "./Aurora";
 import { ChatInterface } from "./ChatInterface";
+import { DocumentsModal } from "./DocumentsModal";
 import { Sidebar, type ConversationSummary } from "./Sidebar";
+import { UploadCloudIcon } from "./icons";
 
 export function ChatApp() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -22,6 +24,10 @@ export function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [streaming, setStreaming] = useState(false);
   const [ready, setReady] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragCount = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // Hydrate from localStorage on mount.
@@ -137,6 +143,49 @@ export function ChatApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [handleNew]);
 
+  // Global drag-and-drop: drop files anywhere to add them to the knowledge base.
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes("Files");
+
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragCount.current += 1;
+      setDragging(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragCount.current = Math.max(0, dragCount.current - 1);
+      if (dragCount.current === 0) setDragging(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragCount.current = 0;
+      setDragging(false);
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length) {
+        setPendingFiles(files);
+        setDocsOpen(true);
+      }
+    };
+
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, []);
+
   const summaries: ConversationSummary[] = useMemo(
     () =>
       conversations.map((c) => ({
@@ -168,6 +217,7 @@ export function ChatApp() {
         onRename={handleRename}
         onClose={() => setSidebarOpen(false)}
         onToggle={() => setSidebarOpen((v) => !v)}
+        onOpenDocs={() => setDocsOpen(true)}
       />
 
         <ChatInterface
@@ -179,6 +229,28 @@ export function ChatApp() {
           onStreamingChange={setStreaming}
         />
       </div>
+
+      {/* Global drag-and-drop overlay */}
+      {dragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-6 backdrop-blur-sm animate-fade-in">
+          <div className="pointer-events-none flex flex-col items-center rounded-3xl border-2 border-dashed border-brand-500/60 bg-ink-900/70 px-12 py-14 text-center">
+            <UploadCloudIcon className="h-12 w-12 text-brand-400" />
+            <p className="mt-4 text-lg font-semibold text-slate-100">
+              Drop files to add to your knowledge base
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              PDF, Markdown, or text — we&apos;ll handle the rest
+            </p>
+          </div>
+        </div>
+      )}
+
+      <DocumentsModal
+        open={docsOpen}
+        onClose={() => setDocsOpen(false)}
+        pendingFiles={pendingFiles}
+        onConsumePending={() => setPendingFiles(null)}
+      />
     </>
   );
 }
