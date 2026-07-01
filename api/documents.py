@@ -9,8 +9,6 @@ The BGE-M3 embedder is lazily loaded once and reused across uploads.
 
 from __future__ import annotations
 
-import re
-import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,9 +24,8 @@ from embedding.vector_store import (
     upsert_points,
 )
 from ingestion.chunker import chunk_text
-from ingestion.parsers import parse_pdf
+from ingestion.extractors import extract_blocks, is_supported
 
-SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
 _BATCH = 32
 
 _embedder: BGE3Embedder | None = None
@@ -65,39 +62,21 @@ def _mk_chunk(
 
 
 def _file_to_chunks(filename: str, data: bytes) -> list[dict]:
-    """Parse a single file into embeddable chunk dicts."""
-    ext = Path(filename).suffix.lower()
-    stem = Path(filename).stem
+    """Parse a single file (any supported type) into embeddable chunk dicts."""
     chunks: list[dict] = []
     idx = 0
-
-    if ext == ".pdf":
-        # parse_pdf needs a real file path.
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tf:
-            tf.write(data)
-            tmp = Path(tf.name)
-        try:
-            pages, _parser = parse_pdf(tmp)
-        finally:
-            tmp.unlink(missing_ok=True)
-        for page in pages:
-            for piece in chunk_text(page["text"]):
-                chunks.append(
-                    _mk_chunk(filename, stem, page["page_number"], idx, piece)
+    for block in extract_blocks(filename, data):
+        for piece in chunk_text(block["text"]):
+            chunks.append(
+                _mk_chunk(
+                    filename,
+                    block["heading"],
+                    block["page_number"],
+                    idx,
+                    piece,
                 )
-                idx += 1
-    else:
-        text = data.decode("utf-8", errors="replace")
-        # Split on Markdown headings so each chunk keeps a meaningful heading.
-        sections = re.split(r"(?=^#{1,3} )", text, flags=re.MULTILINE)
-        sections = [s for s in sections if s.strip()] or [text]
-        for section in sections:
-            m = re.match(r"^(#{1,3}) (.+)", section)
-            heading = m.group(2).strip() if m else stem
-            for piece in chunk_text(section):
-                chunks.append(_mk_chunk(filename, heading, None, idx, piece))
-                idx += 1
-
+            )
+            idx += 1
     return chunks
 
 
@@ -138,8 +117,7 @@ def ingest_uploaded_files(
     errors: list[dict] = []
 
     for filename, data in files:
-        ext = Path(filename).suffix.lower()
-        if ext not in SUPPORTED_EXTS:
+        if not is_supported(filename):
             errors.append(
                 {"filename": filename, "error": "Unsupported file type"}
             )

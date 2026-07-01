@@ -239,7 +239,7 @@ export function ChatApp() {
               Drop files to add to your knowledge base
             </p>
             <p className="mt-1 text-sm text-slate-400">
-              PDF, Markdown, or text — we&apos;ll handle the rest
+              PDF, Word, PowerPoint, Excel, and more — we&apos;ll handle the rest
             </p>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ACCEPTED,
+  ACCEPTED_LABEL,
   DocInfo,
   deleteDocument,
   isSupported,
@@ -50,7 +51,10 @@ export function DocumentsModal({
       const supported = files.filter((f) => isSupported(f.name));
       const skipped = files.length - supported.length;
       if (supported.length === 0) {
-        setNote({ kind: "err", text: "Only PDF, Markdown, or text files." });
+        setNote({
+          kind: "err",
+          text: `Unsupported file type. Try ${ACCEPTED_LABEL}.`,
+        });
         return;
       }
       setUploading(true);
@@ -178,8 +182,10 @@ export function DocumentsModal({
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   or{" "}
-                  <span className="text-brand-400 underline">browse your files</span>{" "}
-                  · PDF, Markdown, text
+                  <span className="text-brand-400 underline">browse your files</span>
+                </p>
+                <p className="mt-1.5 text-[11px] text-slate-600">
+                  {ACCEPTED_LABEL}
                 </p>
               </>
             )}
