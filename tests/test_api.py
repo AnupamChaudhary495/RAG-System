@@ -53,7 +53,7 @@ def client(mock_redis):
 def mock_graph():
     """Patch build_app to return a graph that emits two token events then ends."""
 
-    async def fake_stream(initial_state, version="v2"):
+    async def fake_stream(initial_state, version="v2", config=None):
         token1 = MagicMock()
         token1.content = "Hello "
         yield {"event": "on_chat_model_stream", "name": "generator",

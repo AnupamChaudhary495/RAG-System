@@ -19,6 +19,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from api import session
 from api.schemas import ChatRequest
 from api.streaming import format_sse
+from observability.langfuse_handler import make_langfuse_config
 from orchestration.app import build_app
 
 
@@ -73,10 +74,17 @@ async def chat_stream(request: ChatRequest):
                 "retry_count": 0,
             }
 
+            langfuse_config = make_langfuse_config(
+                session_id=request.session_id,
+                query=request.query,
+            )
+
             full_answer = ""
             final_state = None
 
-            async for event in graph.astream_events(initial_state, version="v2"):
+            async for event in graph.astream_events(
+                initial_state, version="v2", config=langfuse_config
+            ):
                 kind = event.get("event")
                 name = event.get("name")
 

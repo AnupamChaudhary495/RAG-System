@@ -11,6 +11,7 @@ dependencies = [
     "FlagEmbedding>=1.2.0",
     "qdrant-client>=1.9.0",
     "torch>=2.0.0",
+    "sentence-transformers>=2.6.0",
     "langgraph>=0.2.0",
     "langchain-openai>=0.1.0",
     "openai>=1.30.0",
@@ -20,6 +21,11 @@ dependencies = [
     "redis>=5.0.0",
     "sse-starlette>=2.0.0",
     "httpx>=0.27.0",
+    "langfuse>=2.20.0",
+    "langchain-core>=0.2.0",
+    "ragas>=0.1.14",
+    "datasets>=2.19.0",
+    "pandas>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +33,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.30.0",
 ]
 
 [build-system]
@@ -34,7 +41,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ingestion", "embedding", "retrieval", "orchestration", "api"]
+packages = ["ingestion", "embedding", "retrieval", "orchestration", "api", "observability", "evaluation"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

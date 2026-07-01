@@ -1,7 +1,7 @@
 """Unit tests for Phase 3 — hybrid retrieval engine.
 
 RRF tests are pure-function (no mocking needed).
-Reranker and Retriever tests mock FlagReranker and QdrantClient respectively
+Reranker and Retriever tests mock CrossEncoder and QdrantClient respectively
 so no live GPU or Qdrant instance is required.
 """
 
@@ -125,7 +125,7 @@ class TestRRF:
 
 
 # ---------------------------------------------------------------------------
-# Reranker tests — FlagReranker mocked
+# Reranker tests — CrossEncoder mocked
 # ---------------------------------------------------------------------------
 
 from retrieval.reranker import CrossEncoderReranker
@@ -142,9 +142,10 @@ def _rrf_result(chunk_id: str, text: str) -> RRFResult:
 
 class TestCrossEncoderReranker:
     def _make_reranker(self, scores: list[float]) -> CrossEncoderReranker:
-        with patch("retrieval.reranker.FlagReranker") as MockFR:
-            instance = MockFR.return_value
-            instance.compute_score.return_value = scores
+        with patch("retrieval.reranker.CrossEncoder") as MockCE:
+            instance = MockCE.return_value
+            import numpy as np
+            instance.predict.return_value = np.array(scores)
             reranker = CrossEncoderReranker()
             reranker._model = instance
         return reranker
@@ -164,9 +165,10 @@ class TestCrossEncoderReranker:
         assert ranked[1][0].chunk_id == "C"        # score 2.0 → second
 
     def test_called_with_correct_pair_format(self):
-        with patch("retrieval.reranker.FlagReranker") as MockFR:
-            instance = MockFR.return_value
-            instance.compute_score.return_value = [0.5, 0.9]
+        with patch("retrieval.reranker.CrossEncoder") as MockCE:
+            instance = MockCE.return_value
+            import numpy as np
+            instance.predict.return_value = np.array([0.5, 0.9])
             reranker = CrossEncoderReranker()
             reranker._model = instance
 
@@ -174,7 +176,7 @@ class TestCrossEncoderReranker:
         candidates = [_rrf_result("X", "chunk X"), _rrf_result("Y", "chunk Y")]
         reranker.rerank(query, candidates, top_k=2)
 
-        call_args = instance.compute_score.call_args
+        call_args = instance.predict.call_args
         pairs = call_args[0][0]
         assert pairs == [["test query", "chunk X"], ["test query", "chunk Y"]]
 
@@ -239,7 +241,11 @@ def _make_retriever(
         mock_client.get_collections.return_value.collections = (
             [col_mock] if collection_exists else []
         )
-        mock_client.search.side_effect = [dense_hits, sparse_hits]
+        dense_result = MagicMock()
+        dense_result.points = dense_hits
+        sparse_result = MagicMock()
+        sparse_result.points = sparse_hits
+        mock_client.query_points.side_effect = [dense_result, sparse_result]
 
         # Embedder mock
         mock_encoded = MagicMock()
@@ -297,7 +303,7 @@ class TestRetriever:
     def test_dense_and_sparse_search_called_once_per_query(self):
         retriever, mock_client = _make_retriever()
         retriever.retrieve("query", top_k=5)
-        assert mock_client.search.call_count == 2
+        assert mock_client.query_points.call_count == 2
 
     def test_raises_value_error_when_collection_missing(self):
         with (

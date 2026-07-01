@@ -1,0 +1,110 @@
+{
+  "_instructions": "Replace these examples with domain-specific queries before running evaluation. Each query should have at least one document in the Qdrant collection that contains the expected answer.",
+  "queries": [
+    {
+      "id": "q001",
+      "query": "How many vacation days does a full-time employee accrue per year?",
+      "expected_answer": "Full-time employees accrue 20 paid vacation days per calendar year, prorated for partial years of service.",
+      "query_type": "factual",
+      "notes": "Look for a single specific number pulled directly from the leave policy. The answer should cite the vacation/PTO policy document and state the exact accrual figure."
+    },
+    {
+      "id": "q002",
+      "query": "What is the maximum reimbursable amount for a single business meal?",
+      "expected_answer": "The per-person cap for a reimbursable business meal is 75 USD, excluding tax and gratuity.",
+      "query_type": "factual",
+      "notes": "Single factual figure from the travel and expense policy. Judge whether the exact cap is retrieved and stated without hedging."
+    },
+    {
+      "id": "q003",
+      "query": "Who must approve a purchase order above the standard spending limit?",
+      "expected_answer": "Purchase orders above the departmental spending limit require sign-off from the department head and, above a second threshold, the finance director.",
+      "query_type": "factual",
+      "notes": "Check that the answer names the correct approving roles from the procurement policy, not generic 'a manager'."
+    },
+    {
+      "id": "q004",
+      "query": "What is the standard notice period for voluntary resignation?",
+      "expected_answer": "Employees are expected to provide a minimum of four weeks' written notice when resigning voluntarily.",
+      "query_type": "factual",
+      "notes": "Factual lookup from the offboarding policy. The specific notice duration must be present and correct."
+    },
+    {
+      "id": "q005",
+      "query": "Which security classification applies to internal financial forecasts?",
+      "expected_answer": "Internal financial forecasts are classified as Confidential under the data classification standard.",
+      "query_type": "factual",
+      "notes": "Verify the answer maps the document type to the correct classification tier defined in the information security policy."
+    },
+    {
+      "id": "q006",
+      "query": "How does the remote work allowance compare to the in-office commuter benefit?",
+      "expected_answer": "The remote work allowance is a fixed monthly home-office stipend, whereas the commuter benefit reimburses actual public-transit costs up to a monthly cap; employees may claim one but not both.",
+      "query_type": "comparison",
+      "notes": "Requires contrasting two distinct benefits. A good answer explains the structural difference and the mutual-exclusivity rule."
+    },
+    {
+      "id": "q007",
+      "query": "What are the differences between the standard and premium support tiers?",
+      "expected_answer": "Standard support offers business-hours response with a next-business-day SLA, while premium support adds 24/7 coverage, a one-hour critical-incident SLA, and a named account manager.",
+      "query_type": "comparison",
+      "notes": "Judge whether both tiers are described and the key differentiators (hours, SLA, dedicated contact) are contrasted rather than listed for only one tier."
+    },
+    {
+      "id": "q008",
+      "query": "How do the probation review process and the annual performance review differ?",
+      "expected_answer": "The probation review is a one-time assessment at the end of the initial employment period focused on confirmation of employment, while the annual review is a recurring evaluation tied to goals, compensation, and development planning.",
+      "query_type": "comparison",
+      "notes": "Look for a contrast of purpose, timing, and outcome between the two review types drawn from the performance management policy."
+    },
+    {
+      "id": "q009",
+      "query": "When does the new expense reimbursement policy take effect?",
+      "expected_answer": "The revised expense reimbursement policy takes effect on the first day of the next fiscal quarter following its publication.",
+      "query_type": "temporal",
+      "notes": "Answer must surface the effective date / go-live timing. Check that it references the policy's stated commencement, not the publication date."
+    },
+    {
+      "id": "q010",
+      "query": "How long must signed contracts be retained before they can be destroyed?",
+      "expected_answer": "Signed contracts must be retained for seven years after the contract's expiry or termination before secure destruction is permitted.",
+      "query_type": "temporal",
+      "notes": "Temporal/duration lookup from the records retention schedule. The retention period and its start point (expiry, not signing) should both be correct."
+    },
+    {
+      "id": "q011",
+      "query": "What is the deadline for submitting expense claims after a business trip?",
+      "expected_answer": "Expense claims must be submitted within 30 days of the trip's completion; claims filed later may be rejected.",
+      "query_type": "temporal",
+      "notes": "Check the submission window is retrieved and expressed relative to trip completion. Late-submission consequence is a bonus."
+    },
+    {
+      "id": "q012",
+      "query": "If an employee relocates to another country, how does that affect their equipment allowance and data access approvals?",
+      "expected_answer": "An international relocation triggers a re-issue of locally compliant equipment under the regional allowance and requires re-approval of data access under the destination country's data residency rules.",
+      "query_type": "multi_hop",
+      "notes": "Requires joining information from the equipment policy and the data governance policy. A strong answer connects both consequences rather than addressing only one."
+    },
+    {
+      "id": "q013",
+      "query": "A contractor needs elevated production access to resolve an incident — what approvals and security requirements must be satisfied first?",
+      "expected_answer": "The contractor must have a signed NDA on file, complete security onboarding, obtain time-boxed access approved by both the system owner and security team, and have the access revoked automatically when the incident window closes.",
+      "query_type": "multi_hop",
+      "notes": "Multi-hop across contractor policy, access control policy, and incident procedures. Judge whether the chain of prerequisites is assembled coherently."
+    },
+    {
+      "id": "q014",
+      "query": "What is the best pizza topping to order for the team lunch?",
+      "expected_answer": "This question is outside the scope of the knowledge base; no policy document addresses it and the system should respond with low confidence.",
+      "query_type": "out_of_scope",
+      "notes": "Out-of-scope. The correct behavior is a low-confidence response that declines to answer or states the information is not available, rather than a hallucinated recommendation."
+    },
+    {
+      "id": "q015",
+      "query": "What will the company's stock price be next quarter?",
+      "expected_answer": "This is a speculative, out-of-scope question the knowledge base cannot answer; the system should return a low-confidence response and decline to predict.",
+      "query_type": "out_of_scope",
+      "notes": "Out-of-scope and speculative. Verify the system does not fabricate a figure and instead signals low confidence or an explicit inability to answer."
+    }
+  ]
+}

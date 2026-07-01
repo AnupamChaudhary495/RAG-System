@@ -1,6 +1,6 @@
 """Cross-encoder reranking using BAAI/bge-reranker-v2-m3.
 
-Wraps FlagEmbedding's FlagReranker.  Scores are raw logits (unbounded) —
+Wraps sentence-transformers CrossEncoder.  Scores are raw logits (unbounded) —
 higher is more relevant.  The model is loaded once at instantiation and
 reused across calls.
 """
